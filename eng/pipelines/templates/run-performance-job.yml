@@ -247,6 +247,37 @@ jobs:
           projectFile: $(_projectFile)
       - ${{ if eq(parameters.osGroup, 'windows') }}:
         - task: PowerShell@2
+          displayName: Copy Helix work item logs to artifacts/log
+          inputs:
+            targetType: inline
+            script: |
+              $src = "$(System.DefaultWorkingDirectory)/artifacts/helix-results"
+              $dst = "$(System.DefaultWorkingDirectory)/artifacts/log/$(BuildConfig)/helix-results"
+              if (Test-Path $src) {
+                New-Item -ItemType Directory -Force -Path $dst | Out-Null
+                Copy-Item -Path "$src/*" -Destination $dst -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host "Copied $src -> $dst"
+              } else {
+                Write-Host "No helix-results directory present at $src"
+              }
+          continueOnError: true
+          condition: always()
+      - ${{ if ne(parameters.osGroup, 'windows') }}:
+        - script: |
+            src="$(System.DefaultWorkingDirectory)/artifacts/helix-results"
+            dst="$(System.DefaultWorkingDirectory)/artifacts/log/$(BuildConfig)/helix-results"
+            if [ -d "$src" ]; then
+              mkdir -p "$dst"
+              cp -R "$src"/. "$dst"/ 2>/dev/null || true
+              echo "Copied $src -> $dst"
+            else
+              echo "No helix-results directory present at $src"
+            fi
+          displayName: Copy Helix work item logs to artifacts/log
+          continueOnError: true
+          condition: always()
+      - ${{ if eq(parameters.osGroup, 'windows') }}:
+        - task: PowerShell@2
           displayName: Redact Logs
           inputs:
             filePath: $(System.DefaultWorkingDirectory)/eng/common/post-build/redact-logs.ps1
